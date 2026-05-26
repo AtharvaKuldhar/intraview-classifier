@@ -1,0 +1,77 @@
+# Augmentation Configuration File for Dental Image Classifier
+seed: 42
+input_dir: "d:/Dental_Image_Classifier/data/processed"
+output_dir: "d:/Dental_Image_Classifier/data/augmented"
+
+classes:
+  lower_left:
+    original: 684
+    target: 684          # Already above target, no offline augmentation
+    tier: 0
+  lower_occlusal:
+    original: 621
+    target: 650
+    tier: 1
+  upper_occlusal:
+    original: 560
+    target: 650
+    tier: 1
+  lower_front:
+    original: 325
+    target: 650
+    tier: 2
+  lower_right:
+    original: 278
+    target: 650
+    tier: 2
+  upper_left:
+    original: 198
+    target: 650
+    tier: 3
+  upper_front:
+    original: 164
+    target: 650
+    tier: 3
+  upper_right:
+    original: 145
+    target: 650
+    tier: 4
+
+tiers:
+  0:
+    name: "no_augmentation"
+  1:
+    name: "very_light"
+    rotation_limit: 5
+    brightness_limit: 0.05
+    contrast_limit: 0.05
+  2:
+    name: "moderate"
+    rotation_limit: 10
+    brightness_limit: 0.1
+    contrast_limit: 0.1
+    blur_sigma_min: 0.5
+    blur_sigma_max: 1.0
+    crop_scale_min: 0.95
+    crop_scale_max: 1.0
+  3:
+    name: "moderate_aggressive"
+    rotation_limit: 12
+    brightness_limit: 0.12
+    contrast_limit: 0.12
+    blur_sigma_min: 0.5
+    blur_sigma_max: 1.5
+    crop_scale_min: 0.90
+    crop_scale_max: 1.0
+    saturation_limit: 0.08
+  4:
+    name: "aggressive"
+    rotation_limit: 15
+    brightness_limit: 0.15
+    contrast_limit: 0.15
+    blur_sigma_min: 0.5
+    blur_sigma_max: 2.0
+    crop_scale_min: 0.85
+    crop_scale_max: 1.0
+    saturation_limit: 0.10
+    sharpen: true
