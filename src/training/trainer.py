@@ -259,7 +259,7 @@ class Trainer:
         if os.path.exists(checkpoint_path):
             try:
                 # Load peak metrics recorded in checkpoint
-                checkpoint = torch.load(checkpoint_path, map_location='cpu')
+                checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
                 peak_metrics = {
                     "Peak_Val_Accuracy": checkpoint.get("accuracy", 0.0),
                     "Peak_Val_F1_Macro": checkpoint.get("f1_macro", 0.0)
@@ -347,7 +347,7 @@ class Trainer:
     def load_checkpoint(self, checkpoint_path: str) -> int:
         """Loads a saved checkpoint and returns the last completed epoch."""
         self.logger.info(f"Loading checkpoint from: {checkpoint_path}")
-        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
         self.model.load_state_dict(checkpoint["model_state_dict"])
         
         if self.optimizer and "optimizer_state_dict" in checkpoint:

@@ -232,7 +232,7 @@ def main():
         num_classes=model_cfg.get("num_classes", 8)
     )
     
-    checkpoint = torch.load(checkpoint_path, map_location=device)
+    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     model.load_state_dict(checkpoint["model_state_dict"])
     model = model.to(device)
     print(f"[EVAL] Checkpoint loaded successfully from epoch {checkpoint['epoch']} (Best Val Acc: {checkpoint.get('accuracy', 0.0):.4f})")
