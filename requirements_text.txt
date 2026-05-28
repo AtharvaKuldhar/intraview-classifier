@@ -1,0 +1,63 @@
+Requirements
+Train Test validation split…? 
+Attributes 
+Description 
+Total number of images 
+…………………
+Intra oral image Varieties 
+8 classes
+Images in each class 
+…………….
+Resolution 
+………………………….
+Dataset split up 
+……………….
+Training and testing images 
+…. images and …….. images 
+Hyperparameter 
+Model name1
+Name2
+Name2
+Name2
+Name2
+Dataset 
+Input Image Size 
+Model Initialization 
+Convolution Layers 
+Attention Mechanism 
+Pooling Strategy 
+Fully Connected Layers 
+Activation Function 
+Output Activation 
+Loss Function 
+Optimizer 
+Learning Rate 
+Batch Size 
+Number of Epochs 
+Dropout Rate 
+Data Augmentation 
+Fine-Tuning 
+Evaluation Metrics 
+Data preprocessing:
+Give description of Data preprocessing
+…………………..
+Feature Extraction
+Model
+Accuracy
+Precision 
+Recall
+F1-score
+Dataset
+K-folds
+Accuracy %
+Precision %
+Recall %
+F1-score %
+Intraoral dataset
+K=2
+K=3
+K=5
+K=7
+K=9
+System Flow
+Dental image dataset->Preprocessing->…………………
