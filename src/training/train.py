@@ -126,7 +126,8 @@ def main():
     model = create_model(
         model_name=model_cfg["name"],
         pretrained=model_cfg.get("pretrained", True),
-        num_classes=model_cfg.get("num_classes", 8)
+        num_classes=model_cfg.get("num_classes", 8),
+        img_size=data_cfg.get("input_size", 224)
     )
     
     # 8. Compute Class Weights for Cross-Entropy Loss to counter residual imbalances

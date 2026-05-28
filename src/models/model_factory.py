@@ -16,7 +16,7 @@ MODEL_REGISTRY = {
     "dinov2_small": "vit_small_patch14_dinov2.lvd142m"
 }
 
-def create_model(model_name: str, pretrained: bool = True, num_classes: int = 8) -> nn.Module:
+def create_model(model_name: str, pretrained: bool = True, num_classes: int = 8, img_size: int = 224) -> nn.Module:
     """
     Unified Strategy Pattern for Model Architecture Instantiation.
     Leverages PyTorch Image Models (timm) for standard backbones and head adaptations.
@@ -25,6 +25,7 @@ def create_model(model_name: str, pretrained: bool = True, num_classes: int = 8)
         model_name (str): Key name of the model from MODEL_REGISTRY.
         pretrained (bool): If True, loads pre-trained ImageNet weights.
         num_classes (int): Number of final target view classes. Defaults to 8.
+        img_size (int): Receptive field resolution (width/height). Defaults to 224.
         
     Returns:
         nn.Module: The constructed PyTorch model with custom classification head.
@@ -38,12 +39,19 @@ def create_model(model_name: str, pretrained: bool = True, num_classes: int = 8)
     timm_name = MODEL_REGISTRY[model_name]
     print(f"[MODEL_FACTORY] Instantiating '{model_name}' using timm backbone: '{timm_name}'")
     
-    # 1. Instantiate the pre-trained architecture with adapted head size
+    # 1. Instantiate the pre-trained architecture with adapted head size and resolution
     try:
+        # Determine extra arguments for specific model families (e.g. Vision Transformers / Swin)
+        kwargs = {}
+        if "dinov2" in model_name or "vit" in model_name or "swin" in model_name:
+            kwargs["img_size"] = img_size
+            print(f"[MODEL_FACTORY] Configuring Vision Transformer 'img_size={img_size}' for adaptive positional embedding interpolation.")
+            
         model = timm.create_model(
             timm_name,
             pretrained=pretrained,
-            num_classes=num_classes
+            num_classes=num_classes,
+            **kwargs
         )
     except Exception as e:
         raise RuntimeError(

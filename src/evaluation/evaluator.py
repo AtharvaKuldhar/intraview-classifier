@@ -229,7 +229,8 @@ def main():
     model = create_model(
         model_name=model_cfg["name"],
         pretrained=False,  # Weights loaded manually from checkpoint
-        num_classes=model_cfg.get("num_classes", 8)
+        num_classes=model_cfg.get("num_classes", 8),
+        img_size=data_cfg.get("input_size", 224)
     )
     
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
