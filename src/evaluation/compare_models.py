@@ -41,47 +41,47 @@ def parse_args():
     return parser.parse_args()
 
 def collect_experiment_metrics(experiments_root: str) -> List[Dict[str, Any]]:
-    """Recursively crawls the experiments root directory to gather all metrics.json files."""
+    """Recursively walks the experiments root directory to gather all metrics.json files."""
     results = []
     
     if not os.path.exists(experiments_root):
         print(f"[COMPARE] Directory does not exist: {experiments_root}")
         return results
         
-    for item in os.listdir(experiments_root):
-        item_path = os.path.join(experiments_root, item)
-        if os.path.isdir(item_path):
-            metrics_json = os.path.join(item_path, "metrics.json")
-            if os.path.exists(metrics_json):
-                try:
-                    with open(metrics_json, "r", encoding="utf-8") as f:
-                        data = json.load(f)
+    print(f"[COMPARE] Crawling directory recursively for metrics: '{experiments_root}'")
+    for root, dirs, files in os.walk(experiments_root):
+        if "metrics.json" in files:
+            metrics_json = os.path.join(root, "metrics.json")
+            try:
+                with open(metrics_json, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                
+                model_name = data.get("model_name")
+                if model_name in MODEL_META:
+                    meta = MODEL_META[model_name]
+                    folder_name = os.path.basename(root)
+                    record = {
+                        "model_name": model_name,
+                        "display_name": meta["display_name"],
+                        "family": meta["family"],
+                        "params": meta["params"],
+                        "flops": meta["flops"],
+                        "epoch": data.get("checkpoint_epoch"),
+                        "experiment_folder": folder_name
+                    }
+                    # Flatten global metrics
+                    global_metrics = data.get("global_metrics", {})
+                    record.update(global_metrics)
                     
-                    model_name = data.get("model_name")
-                    if model_name in MODEL_META:
-                        meta = MODEL_META[model_name]
-                        record = {
-                            "model_name": model_name,
-                            "display_name": meta["display_name"],
-                            "family": meta["family"],
-                            "params": meta["params"],
-                            "flops": meta["flops"],
-                            "epoch": data.get("checkpoint_epoch"),
-                            "experiment_folder": item
-                        }
-                        # Flatten global metrics
-                        global_metrics = data.get("global_metrics", {})
-                        record.update(global_metrics)
+                    # Store per-class F1 scores directly for plotting
+                    class_perf = data.get("class_performance", {})
+                    for c in DentalDataset.CLASSES:
+                        record[f"F1_{c}"] = class_perf.get(c, {}).get("F1", 0.0)
                         
-                        # Store per-class F1 scores directly for plotting
-                        class_perf = data.get("class_performance", {})
-                        for c in DentalDataset.CLASSES:
-                            record[f"F1_{c}"] = class_perf.get(c, {}).get("F1", 0.0)
-                            
-                        results.append(record)
-                        print(f"[COMPARE] Collected metrics for model '{model_name}' from: {item}")
-                except Exception as e:
-                    print(f"[COMPARE] Error reading {metrics_json}: {e}")
+                    results.append(record)
+                    print(f"[COMPARE] Successfully collected metrics for '{model_name}' from: {metrics_json}")
+            except Exception as e:
+                print(f"[COMPARE] Error reading {metrics_json}: {e}")
                     
     return results
 
@@ -268,7 +268,8 @@ def main():
     output_root = ""
     if is_colab and args.drive_prefix is not True and drive_mounted:
         output_root = "/content/drive/MyDrive/dental_research"
-        experiments_root = os.path.join(output_root, "experiments")
+        # Walk through the entire dental_research directory recursively to gather all metrics wherever stored
+        experiments_root = output_root
         
     print(f"[COMPARE] Gathering results from folder: '{experiments_root}'")
     
