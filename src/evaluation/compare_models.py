@@ -41,47 +41,76 @@ def parse_args():
     return parser.parse_args()
 
 def collect_experiment_metrics(experiments_root: str) -> List[Dict[str, Any]]:
-    """Recursively walks the experiments root directory to gather all metrics.json files."""
+    """Recursively walks the search directories to gather all metrics.json files."""
     results = []
     
-    if not os.path.exists(experiments_root):
-        print(f"[COMPARE] Directory does not exist: {experiments_root}")
-        return results
+    search_paths = []
+    if experiments_root:
+        search_paths.append(experiments_root)
         
-    print(f"[COMPARE] Crawling directory recursively for metrics: '{experiments_root}'")
-    for root, dirs, files in os.walk(experiments_root):
-        if "metrics.json" in files:
-            metrics_json = os.path.join(root, "metrics.json")
-            try:
-                with open(metrics_json, "r", encoding="utf-8") as f:
-                    data = json.load(f)
+        # If the provided path ends with "experiments", also search the sibling "checkpoints" directory
+        norm_path = experiments_root.rstrip("/\\")
+        if os.path.basename(norm_path) == "experiments":
+            parent = os.path.dirname(norm_path)
+            checkpoints_sibling = os.path.join(parent, "checkpoints")
+            if os.path.exists(checkpoints_sibling):
+                search_paths.append(checkpoints_sibling)
+                print(f"[COMPARE] Sibling checkpoints directory detected: adding '{checkpoints_sibling}' to crawl path.")
+        else:
+            # If the provided path itself is the root dental_research directory, look for nested checkpoints
+            checkpoints_nested = os.path.join(norm_path, "checkpoints")
+            if os.path.exists(checkpoints_nested) and checkpoints_nested not in search_paths:
+                search_paths.append(checkpoints_nested)
+                print(f"[COMPARE] Nested checkpoints directory detected: adding '{checkpoints_nested}' to crawl path.")
                 
-                model_name = data.get("model_name")
-                if model_name in MODEL_META:
-                    meta = MODEL_META[model_name]
-                    folder_name = os.path.basename(root)
-                    record = {
-                        "model_name": model_name,
-                        "display_name": meta["display_name"],
-                        "family": meta["family"],
-                        "params": meta["params"],
-                        "flops": meta["flops"],
-                        "epoch": data.get("checkpoint_epoch"),
-                        "experiment_folder": folder_name
-                    }
-                    # Flatten global metrics
-                    global_metrics = data.get("global_metrics", {})
-                    record.update(global_metrics)
+    # Also search local folders if they exist
+    for fallback in ["checkpoints", "experiments"]:
+        if os.path.exists(fallback) and os.path.abspath(fallback) not in [os.path.abspath(p) for p in search_paths]:
+            search_paths.append(fallback)
+            
+    print(f"[COMPARE] Crawling directories recursively for metrics: {search_paths}")
+    
+    seen_metrics = set()
+    for path in search_paths:
+        if not os.path.exists(path):
+            continue
+        for root, dirs, files in os.walk(path):
+            if "metrics.json" in files:
+                metrics_json = os.path.join(root, "metrics.json")
+                abs_metrics_json = os.path.abspath(metrics_json)
+                if abs_metrics_json in seen_metrics:
+                    continue
+                seen_metrics.add(abs_metrics_json)
+                try:
+                    with open(metrics_json, "r", encoding="utf-8") as f:
+                        data = json.load(f)
                     
-                    # Store per-class F1 scores directly for plotting
-                    class_perf = data.get("class_performance", {})
-                    for c in DentalDataset.CLASSES:
-                        record[f"F1_{c}"] = class_perf.get(c, {}).get("F1", 0.0)
+                    model_name = data.get("model_name")
+                    if model_name in MODEL_META:
+                        meta = MODEL_META[model_name]
+                        folder_name = os.path.basename(root)
+                        record = {
+                            "model_name": model_name,
+                            "display_name": meta["display_name"],
+                            "family": meta["family"],
+                            "params": meta["params"],
+                            "flops": meta["flops"],
+                            "epoch": data.get("checkpoint_epoch"),
+                            "experiment_folder": folder_name
+                        }
+                        # Flatten global metrics
+                        global_metrics = data.get("global_metrics", {})
+                        record.update(global_metrics)
                         
-                    results.append(record)
-                    print(f"[COMPARE] Successfully collected metrics for '{model_name}' from: {metrics_json}")
-            except Exception as e:
-                print(f"[COMPARE] Error reading {metrics_json}: {e}")
+                        # Store per-class F1 scores directly for plotting
+                        class_perf = data.get("class_performance", {})
+                        for c in DentalDataset.CLASSES:
+                            record[f"F1_{c}"] = class_perf.get(c, {}).get("F1", 0.0)
+                            
+                        results.append(record)
+                        print(f"[COMPARE] Successfully collected metrics for '{model_name}' from: {metrics_json}")
+                except Exception as e:
+                    print(f"[COMPARE] Error reading {metrics_json}: {e}")
                     
     return results
 
@@ -259,17 +288,22 @@ def plot_per_class_f1_heatmap(df: pd.DataFrame, save_path: str):
 def main():
     args = parse_args()
     
-    # Resolve directories
-    experiments_root = args.experiments_dir
     is_colab = os.path.exists("/content")
     drive_mounted = os.path.exists("/content/drive")
     
-    # Drive redirection check
+    # Resolve output root and drive prefix redirection dynamically
     output_root = ""
-    if is_colab and args.drive_prefix is not True and drive_mounted:
+    if args.drive_prefix and args.drive_prefix != "True":
+        output_root = args.drive_prefix
+    elif is_colab and drive_mounted:
         output_root = "/content/drive/MyDrive/dental_research"
-        # Walk through the entire dental_research directory recursively to gather all metrics wherever stored
-        experiments_root = output_root
+        
+    # Setup search path
+    experiments_root = args.experiments_dir
+    
+    # If output_root is resolved, align experiments_root to the output_root if it was not customized
+    if output_root and (experiments_root == "experiments" or not os.path.isabs(experiments_root)):
+        experiments_root = os.path.join(output_root, "experiments")
         
     print(f"[COMPARE] Gathering results from folder: '{experiments_root}'")
     
