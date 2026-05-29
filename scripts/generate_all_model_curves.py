@@ -7,6 +7,12 @@ import matplotlib.pyplot as plt
 def parse_args():
     parser = argparse.ArgumentParser(description="Orchestrator to generate Fig 9 and Fig 11 style curves for ALL trained models.")
     parser.add_argument(
+        "--logs_dir", 
+        type=str, 
+        default="logs", 
+        help="Root folder containing training logs."
+    )
+    parser.add_argument(
         "--checkpoints_dir", 
         type=str, 
         default="checkpoints", 
@@ -108,6 +114,18 @@ def plot_fig11_train_val_curves(csv_path: str, model_display_name: str, save_pat
         
     plt.close()
 
+def get_model_name_from_folder(folder_name):
+    """Accurately finds model name prefix from timestamped folder name."""
+    known_models = [
+        "resnet50", "densenet121", "mobilenetv3_small", 
+        "efficientnet_b2", "efficientnet_b3", "convnext_tiny", 
+        "swin_tiny", "dinov2_small"
+    ]
+    for model in known_models:
+        if folder_name.startswith(model):
+            return model
+    return folder_name.split("_")[0]
+
 def main():
     args = parse_args()
     
@@ -115,30 +133,34 @@ def main():
     drive_mounted = os.path.exists("/content/drive")
     
     # Drive prefix redirection
+    logs_dir = args.logs_dir
     checkpoints_dir = args.checkpoints_dir
     output_dir = args.output_dir
     
     if args.drive_prefix:
+        logs_dir = os.path.join(args.drive_prefix, "logs")
         checkpoints_dir = os.path.join(args.drive_prefix, "checkpoints")
         output_dir = os.path.join(args.drive_prefix, "outputs/plots/model_curves")
     elif is_colab and drive_mounted:
         drive_root = "/content/drive/MyDrive/dental_research"
+        logs_dir = os.path.join(drive_root, "logs")
         checkpoints_dir = os.path.join(drive_root, "checkpoints")
         output_dir = os.path.join(drive_root, "outputs/plots/model_curves")
         
     print("=" * 70)
     print("STARTING BULK TRAINING CURVES GENERATOR PIPELINE")
     print("=" * 70)
-    print(f"Scanning root directory: '{checkpoints_dir}'")
+    print(f"Scanning logs directory: '{logs_dir}'")
+    print(f"Checkpoints root directory: '{checkpoints_dir}'")
     print(f"Global curves output directory: '{output_dir}'\n")
     
-    if not os.path.exists(checkpoints_dir):
-        print(f"[CURVES] Error: Checkpoints directory '{checkpoints_dir}' does not exist.")
+    if not os.path.exists(logs_dir):
+        print(f"[CURVES] Error: Logs directory '{logs_dir}' does not exist.")
         return
         
-    # Walk directory to find all training_logs.csv files
+    # Walk directory to find all training_logs.csv files in the logs directory
     logs_found = []
-    for root, dirs, files in os.walk(checkpoints_dir):
+    for root, dirs, files in os.walk(logs_dir):
         if "training_logs.csv" in files:
             csv_path = os.path.join(root, "training_logs.csv")
             logs_found.append(csv_path)
@@ -164,38 +186,46 @@ def main():
     for idx, csv_path in enumerate(logs_found):
         # Infer model display name from folder structure
         parent_dir = os.path.basename(os.path.dirname(csv_path)) # e.g. resnet50_20260527_110146
-        grandparent_dir = os.path.basename(os.path.dirname(os.path.dirname(csv_path))) # e.g. resnet50
         
-        inferred_key = grandparent_dir if grandparent_dir in model_name_map else parent_dir.split("_")[0]
+        inferred_key = get_model_name_from_folder(parent_dir)
         display_name = model_name_map.get(inferred_key, inferred_key.upper())
         
         print(f"[{idx+1}/{len(logs_found)}] Processing history metrics for '{display_name}'...")
         
-        # Prepare dual target paths for save (both in the specific run folder and global paper gallery)
-        specific_run_dir = os.path.dirname(csv_path)
-        
-        fig9_local_path = os.path.join(specific_run_dir, "training_curves.png")
+        # Prepare targets
         fig9_global_path = os.path.join(output_dir, f"{inferred_key}_fig9_training_curves.png")
-        
-        fig11_local_path = os.path.join(specific_run_dir, "train_val_curves.png")
         fig11_global_path = os.path.join(output_dir, f"{inferred_key}_fig11_train_val_curves.png")
         
+        # Sibling Checkpoint Run directory matching the inferred prefix structure:
+        # e.g. checkpoints/resnet50/resnet50_20260527_110146/
+        specific_run_dir = os.path.join(checkpoints_dir, inferred_key, parent_dir)
+        
+        save_paths_fig9 = [fig9_global_path]
+        save_paths_fig11 = [fig11_global_path]
+        
+        if os.path.exists(specific_run_dir):
+            fig9_local_path = os.path.join(specific_run_dir, "training_curves.png")
+            fig11_local_path = os.path.join(specific_run_dir, "train_val_curves.png")
+            save_paths_fig9.append(fig9_local_path)
+            save_paths_fig11.append(fig11_local_path)
+            print(f"  └─ Matching run checkpoint directory detected: {specific_run_dir}")
+            
         # Generate shaded curves (Fig 9 style)
         plot_fig9_training_curves(
             csv_path=csv_path,
             model_display_name=display_name,
-            save_paths=[fig9_local_path, fig9_global_path]
+            save_paths=save_paths_fig9
         )
         
         # Generate comparative curves (Fig 11 style)
         plot_fig11_train_val_curves(
             csv_path=csv_path,
             model_display_name=display_name,
-            save_paths=[fig11_local_path, fig11_global_path]
+            save_paths=save_paths_fig11
         )
         
-        print(f"  └─ Shaded curve saved to: {fig9_global_path}")
-        print(f"  └─ Train vs Val curve saved to: {fig11_global_path}")
+        print(f"  └─ Shaded curve saved successfully.")
+        print(f"  └─ Train vs Val curve saved successfully.")
         
     print("\n" + "=" * 70)
     print("SUCCESS: Training curves compiled for all models successfully!")
