@@ -96,7 +96,8 @@ def collect_experiment_metrics(experiments_root: str) -> List[Dict[str, Any]]:
                             "params": meta["params"],
                             "flops": meta["flops"],
                             "epoch": data.get("checkpoint_epoch"),
-                            "experiment_folder": folder_name
+                            "experiment_folder": folder_name,
+                            "metrics_dir": root
                         }
                         # Flatten global metrics
                         global_metrics = data.get("global_metrics", {})
@@ -285,6 +286,249 @@ def plot_per_class_f1_heatmap(df: pd.DataFrame, save_path: str):
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close()
 
+def plot_proposed_models_performance(df: pd.DataFrame, save_path: str):
+    """Generates a vertical grouped bar chart comparing Accuracy, Precision, Recall, and F1-score for proposed models (matching Fig 8)."""
+    df_sorted = df.sort_values(by="F1_Macro", ascending=False)
+    
+    models = df_sorted["display_name"].tolist()
+    accuracies = (df_sorted["Accuracy"] * 100).tolist()
+    precisions = (df_sorted["Precision_Macro"] * 100).tolist()
+    recalls = (df_sorted["Recall_Macro"] * 100).tolist()
+    f1_scores = (df_sorted["F1_Macro"] * 100).tolist()
+    
+    x = np.arange(len(models))
+    width = 0.18
+    
+    fig, ax = plt.subplots(figsize=(13, 7))
+    
+    # Matching Fig. 8 colors but with premium hues
+    rects1 = ax.bar(x - 1.5*width, accuracies, width, label='Accuracy', color='#3b82f6') # premium blue
+    rects2 = ax.bar(x - 0.5*width, precisions, width, label='Precision', color='#f97316') # premium orange
+    rects3 = ax.bar(x + 0.5*width, recalls, width, label='Recall', color='#9ca3af') # premium grey
+    rects4 = ax.bar(x + 1.5*width, f1_scores, width, label='F1-score', color='#eab308') # premium yellow
+    
+    ax.set_ylabel('Performance Score (%)', fontsize=12, fontweight='bold')
+    ax.set_title('Performance Evaluation Graph of Proposed Models on Tooth Dataset', fontsize=14, fontweight='bold', pad=20)
+    ax.set_xticks(x)
+    ax.set_xticklabels(models, rotation=15, ha='right', fontsize=10, fontweight='semibold')
+    ax.set_ylim(0, 105)
+    ax.grid(True, axis='y', linestyle='--', alpha=0.5)
+    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=4, fontsize=11, frameon=True)
+    
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
+
+def plot_champion_confusion_matrix(cm: np.ndarray, class_names: List[str], model_name: str, save_path: str):
+    """Generates a high-quality publication-grade confusion matrix for the champion model (matching Fig 10)."""
+    plt.figure(figsize=(10, 8))
+    
+    # Normalize confusion matrix
+    cm_norm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+    
+    plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+    plt.title(f"Confusion Matrix - {model_name}", fontsize=16, pad=20, fontweight='bold')
+    plt.colorbar()
+    
+    tick_marks = np.arange(len(class_names))
+    plt.xticks(tick_marks, [c.replace("_", " ").title() for c in class_names], rotation=45, ha='right', fontsize=10)
+    plt.yticks(tick_marks, [c.replace("_", " ").title() for c in class_names], fontsize=10)
+    
+    thresh = cm.max() / 2.
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            val = cm[i, j]
+            pct = cm_norm[i, j] * 100
+            text = f"{val}\n({pct:.1f}%)"
+            plt.text(
+                j, i, text,
+                horizontalalignment="center",
+                verticalalignment="center",
+                color="white" if val > thresh else "black",
+                fontweight='bold' if val > thresh or pct > 20 else 'normal',
+                fontsize=9
+            )
+            
+    plt.ylabel('Actual Labels', fontsize=12, fontweight='semibold')
+    plt.xlabel('Predicted Labels', fontsize=12, fontweight='semibold')
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
+
+def plot_champion_training_curves(csv_path: str, model_display_name: str, save_path: str):
+    """Generates Training Accuracy and Loss curves matching Fig 9 in requirements."""
+    if not os.path.exists(csv_path):
+        return
+        
+    df = pd.read_csv(csv_path)
+    epochs = df['epoch']
+    
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    
+    # 1. Training Accuracy Panel
+    axes[0].plot(epochs, df['train_accuracy'], marker='o', markersize=4, color='#1f77b4', linewidth=2, label='Training Accuracy')
+    axes[0].fill_between(epochs, df['train_accuracy'], color='#1f77b4', alpha=0.15)
+    axes[0].set_title('Training Accuracy', fontsize=14, fontweight='bold', pad=10)
+    axes[0].set_xlabel('Epochs', fontsize=11)
+    axes[0].set_ylabel('Accuracy', fontsize=11)
+    axes[0].set_ylim(0, 1.02)
+    axes[0].grid(True, linestyle=':', alpha=0.6)
+    axes[0].legend(loc='lower right')
+    
+    # 2. Training Loss Panel
+    axes[1].plot(epochs, df['train_loss'], marker='o', markersize=4, color='#2ca02c', linewidth=2, label='Training Loss')
+    axes[1].fill_between(epochs, df['train_loss'], color='#2ca02c', alpha=0.15)
+    axes[1].set_title('Training Loss', fontsize=14, fontweight='bold', pad=10)
+    axes[1].set_xlabel('Epochs', fontsize=11)
+    axes[1].set_ylabel('Loss', fontsize=11)
+    axes[1].grid(True, linestyle=':', alpha=0.6)
+    axes[1].legend(loc='upper right')
+    
+    plt.suptitle(f"Training Progress Dashboard - {model_display_name}", fontsize=16, fontweight='bold', y=1.02)
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
+
+def plot_champion_train_val_curves(csv_path: str, model_display_name: str, save_path: str):
+    """Generates Training vs Validation curves matching Fig 11 in requirements."""
+    if not os.path.exists(csv_path):
+        return
+        
+    df = pd.read_csv(csv_path)
+    epochs = df['epoch']
+    
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    
+    # 1. Accuracy Panel
+    axes[0].plot(epochs, df['train_accuracy'], color='#1f77b4', linewidth=2, label='Train Accuracy')
+    if 'val_accuracy' in df.columns:
+        axes[0].plot(epochs, df['val_accuracy'], color='#ff7f0e', linewidth=2, label='Validation Accuracy')
+    axes[0].set_title('Training vs Validation Accuracy', fontsize=14, fontweight='bold', pad=10)
+    axes[0].set_xlabel('Epochs', fontsize=11)
+    axes[0].set_ylabel('Accuracy', fontsize=11)
+    axes[0].set_ylim(0, 1.02)
+    axes[0].grid(True, linestyle=':', alpha=0.6)
+    axes[0].legend(loc='lower right')
+    
+    # 2. Loss Panel
+    axes[1].plot(epochs, df['train_loss'], color='#1f77b4', linewidth=2, label='Train Loss')
+    if 'val_loss' in df.columns:
+        axes[1].plot(epochs, df['val_loss'], color='#ff7f0e', linewidth=2, label='Validation Loss')
+    axes[1].set_title('Training vs Validation Loss', fontsize=14, fontweight='bold', pad=10)
+    axes[1].set_xlabel('Epochs', fontsize=11)
+    axes[1].set_ylabel('Loss', fontsize=11)
+    axes[1].grid(True, linestyle=':', alpha=0.6)
+    axes[1].legend(loc='upper right')
+    
+    plt.suptitle(f"Training vs Validation Progress - {model_display_name}", fontsize=16, fontweight='bold', y=1.02)
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
+
+def plot_efficiency_vs_performance(df: pd.DataFrame, save_path: str):
+    """Generates an Efficiency vs. Performance Bubble Chart (Visual Idea 1)."""
+    df_copy = df.copy()
+    
+    # Parse params and flops
+    def parse_m(val):
+        try:
+            return float(val.replace("M", ""))
+        except:
+            return 0.0
+            
+    def parse_g(val):
+        try:
+            return float(val.replace("G", ""))
+        except:
+            return 0.0
+            
+    df_copy["params_num"] = df_copy["params"].apply(parse_m)
+    df_copy["flops_num"] = df_copy["flops"].apply(parse_g)
+    
+    plt.figure(figsize=(10, 8))
+    
+    family_colors = {
+        "Classical CNN": "#1f77b4",
+        "Efficient CNN": "#2ca02c",
+        "Modern CNN": "#ff7f0e",
+        "Vision Transformer": "#9467bd"
+    }
+    
+    for family, group in df_copy.groupby("family"):
+        color = family_colors.get(family, "#7f7f7f")
+        sizes = group["flops_num"] * 300 + 100
+        plt.scatter(
+            group["params_num"], group["F1_Macro"], 
+            s=sizes, label=family, color=color, 
+            alpha=0.7, edgecolors='black', linewidth=1.5
+        )
+        
+    for _, row in df_copy.iterrows():
+        plt.annotate(
+            row["display_name"],
+            xy=(row["params_num"], row["F1_Macro"]),
+            xytext=(10, 0), textcoords='offset points',
+            ha='left', va='center', fontsize=9, fontweight='bold'
+        )
+        
+    plt.title("Computational Efficiency vs. Performance Pareto Frontier", fontsize=14, fontweight='bold', pad=20)
+    plt.xlabel("Model Parameters (Millions)", fontsize=12, fontweight='bold')
+    plt.ylabel("Macro F1-Score on Test Split", fontsize=12, fontweight='bold')
+    plt.grid(True, linestyle=':', alpha=0.6)
+    plt.xlim(df_copy["params_num"].min() - 5, df_copy["params_num"].max() + 8)
+    plt.ylim(df_copy["F1_Macro"].min() - 0.05, min(1.02, df_copy["F1_Macro"].max() + 0.05))
+    
+    plt.legend(title="Architectural Paradigm Family", title_fontsize=11, fontsize=10, loc="lower right")
+    
+    plt.text(
+        0.02, 0.98, "*Bubble size represents computational complexity in FLOPs (G)", 
+        transform=plt.gca().transAxes, fontsize=8, style='italic',
+        verticalalignment='top'
+    )
+    
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
+
+def plot_class_imbalance_balancing(save_path: str):
+    """Plots the dataset class-balancing impact of our offline augmentation (Visual Idea 3)."""
+    classes_display = [
+        "Lower Left", "Lower Occlusal", "Upper Occlusal", "Lower Front",
+        "Lower Right", "Upper Left", "Upper Front", "Upper Right"
+    ]
+    originals = [684, 621, 560, 325, 278, 198, 164, 145]
+    targets = [684, 650, 650, 650, 650, 650, 650, 650]
+    augmented = [t - o for o, t in zip(originals, targets)]
+    
+    x = np.arange(len(classes_display))
+    
+    plt.figure(figsize=(12, 7))
+    
+    plt.bar(x, originals, label='Original Clinical Images', color='#2b5c8f', alpha=0.9, width=0.6)
+    plt.bar(x, augmented, bottom=originals, label='Augmented Images (Tier-Balanced)', color='#e7298a', alpha=0.9, width=0.6)
+    
+    plt.ylabel('Number of Images', fontsize=12, fontweight='bold')
+    plt.title('Impact of Tier-Based Data Augmentation on Class Balancing', fontsize=14, fontweight='bold', pad=20)
+    plt.xticks(x, classes_display, rotation=20, ha='right', fontsize=10, fontweight='semibold')
+    plt.grid(True, axis='y', linestyle=':', alpha=0.6)
+    plt.legend(loc='upper right', fontsize=11)
+    
+    for i in range(len(classes_display)):
+        orig = originals[i]
+        aug = augmented[i]
+        total = orig + aug
+        if aug > 0:
+            plt.text(i, orig / 2, str(orig), ha='center', va='center', color='white', fontweight='bold', fontsize=9)
+            plt.text(i, orig + aug / 2, str(aug), ha='center', va='center', color='white', fontweight='bold', fontsize=9)
+        else:
+            plt.text(i, orig / 2, str(orig), ha='center', va='center', color='white', fontweight='bold', fontsize=9)
+        plt.text(i, total + 10, f"Total: {total}", ha='center', va='bottom', fontweight='bold', fontsize=9)
+        
+    plt.ylim(0, 780)
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
+
 def main():
     args = parse_args()
     
@@ -323,6 +567,14 @@ def main():
     os.makedirs(global_reports_dir, exist_ok=True)
     os.makedirs(global_plots_dir, exist_ok=True)
     
+    # Identify the champion model
+    champion_idx = df["F1_Macro"].idxmax()
+    champion_record = df.loc[champion_idx]
+    champion_name = champion_record["model_name"]
+    champion_display_name = champion_record["display_name"]
+    champion_dir = champion_record.get("metrics_dir", "")
+    print(f"\n[COMPARE] Champion model identified: '{champion_display_name}' (Macro F1: {champion_record['F1_Macro']:.4f})")
+    
     # 2. Generate Reports
     md_save_path = os.path.join(global_reports_dir, "model_comparison.md")
     latex_save_path = os.path.join(global_reports_dir, "model_comparison.tex")
@@ -342,6 +594,52 @@ def main():
     plot_per_class_f1_heatmap(df, heatmap_save_path)
     print(f"[COMPARE] Generated per-class performance heatmap at: {heatmap_save_path}")
     
+    # --- New visual additions to match and exceed Requirements.docx ---
+    
+    # Fig. 8 style: Proposed Models Performance (vertical grouped bar chart)
+    fig8_save_path = os.path.join(global_plots_dir, "proposed_models_performance.png")
+    plot_proposed_models_performance(df, fig8_save_path)
+    print(f"[COMPARE] Generated Fig. 8 style proposed models bar chart at: {fig8_save_path}")
+    
+    # Visual Idea 1: Efficiency vs. Performance Bubble chart
+    efficiency_save_path = os.path.join(global_plots_dir, "efficiency_vs_performance.png")
+    plot_efficiency_vs_performance(df, efficiency_save_path)
+    print(f"[COMPARE] Generated Visual Idea 1 bubble chart at: {efficiency_save_path}")
+    
+    # Visual Idea 3: Class balancing dataset bar chart
+    class_balance_save_path = os.path.join(global_plots_dir, "class_imbalance_balancing.png")
+    plot_class_imbalance_balancing(class_balance_save_path)
+    print(f"[COMPARE] Generated Visual Idea 3 class-balancing chart at: {class_balance_save_path}")
+    
+    # Load champion metrics JSON details for Confusion Matrix (Fig. 10)
+    if champion_dir:
+        champion_metrics_path = os.path.join(champion_dir, "metrics.json")
+        if os.path.exists(champion_metrics_path):
+            try:
+                with open(champion_metrics_path, "r", encoding="utf-8") as f:
+                    champ_data = json.load(f)
+                cm_data = champ_data.get("confusion_matrix")
+                if cm_data:
+                    cm_array = np.array(cm_data)
+                    fig10_save_path = os.path.join(global_plots_dir, "champion_confusion_matrix.png")
+                    plot_champion_confusion_matrix(cm_array, DentalDataset.CLASSES, champion_display_name, fig10_save_path)
+                    print(f"[COMPARE] Generated Fig. 10 style confusion matrix for champion model at: {fig10_save_path}")
+            except Exception as e:
+                print(f"[COMPARE] Warning: Failed to load confusion matrix for champion model: {e}")
+                
+        # Fig. 9 & 11 style: training curves of the champion model
+        champion_csv_path = os.path.join(champion_dir, "training_logs.csv")
+        if os.path.exists(champion_csv_path):
+            fig9_save_path = os.path.join(global_plots_dir, "champion_training_curves.png")
+            plot_champion_training_curves(champion_csv_path, champion_display_name, fig9_save_path)
+            print(f"[COMPARE] Generated Fig. 9 style training accuracy/loss curves at: {fig9_save_path}")
+            
+            fig11_save_path = os.path.join(global_plots_dir, "champion_train_val_curves.png")
+            plot_champion_train_val_curves(champion_csv_path, champion_display_name, fig11_save_path)
+            print(f"[COMPARE] Generated Fig. 11 style train vs val curves at: {fig11_save_path}")
+        else:
+            print(f"[COMPARE] Warning: training_logs.csv not found for champion model at: {champion_csv_path}")
+            
     print("\n" + "=" * 50)
     print("SUCCESS: Performance comparative figures and paper assets compiled successfully!")
     print("=" * 50)
