@@ -169,6 +169,34 @@ def run_kfold_cross_validation(config_path: str, k: int, use_drive: bool = True)
             amp=train_cfg.get("amp", True)
         )
         
+        # Check if fold completed successfully in a previous run to support resuming on Colab!
+        fold_log_file = os.path.join(log_dir, fold_name, "experiment.log")
+        best_checkpoint = os.path.join(fold_checkpoint_dir, "best_model.pth")
+        
+        is_completed = False
+        if os.path.exists(best_checkpoint) and os.path.exists(fold_log_file):
+            try:
+                with open(fold_log_file, "r", encoding="utf-8") as f:
+                    log_content = f.read()
+                if f"[FOLD {fold + 1}] Completed!" in log_content:
+                    is_completed = True
+            except Exception:
+                pass
+                
+        if is_completed:
+            print(f"[KFOLD] Fold {fold + 1} was already completed successfully in a previous run. Resuming...")
+            trainer.load_checkpoint(best_checkpoint)
+            _, eval_metrics = trainer.validate()
+            
+            fold_accuracies.append(eval_metrics["Val_Accuracy"])
+            fold_precisions.append(eval_metrics["Val_Precision_Macro"])
+            fold_recalls.append(eval_metrics["Val_Recall_Macro"])
+            fold_f1_scores.append(eval_metrics["Val_F1_Macro"])
+            
+            logger.info(f"[FOLD {fold + 1}] Resumed and loaded! Test Acc: {eval_metrics['Val_Accuracy']:.4f} | Test Macro F1: {eval_metrics['Val_F1_Macro']:.4f}")
+            logger.close()
+            continue
+            
         # Streamline epochs for K-Fold to prevent Colab GPU timeout!
         # Standard: 5 epochs Phase 1 (head calibration), 15 epochs Phase 2 (fine-tune)
         # This keeps total computation very clean while yielding highly representative metrics.

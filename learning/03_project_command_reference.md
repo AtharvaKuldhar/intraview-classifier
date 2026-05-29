@@ -188,23 +188,23 @@ To prove statistical stability and address the specific K-Fold requirements (K=2
 Training all 8 architectures across all 5 values of K would require $8 \times 26 = 208$ separate deep learning training runs, which would immediately exceed Google Colab's T4 GPU usage quotas. In ML research, the standard best-practice is to **select the best-performing architecture (the "Champion")** and run the K-Fold sweep exclusively on it to demonstrate cross-validation robustness.
 
 ### 8.2 Execution Command
-To run the stratified K-Fold cross-validation for a specific model (e.g., ResNet-50) and number of folds (e.g., K=5) in Colab:
+To run the stratified K-Fold cross-validation for the champion model (**Swin-Tiny**) and number of folds (e.g., K=5) in Colab:
 
 ```bash
 # Syntax: python scripts/run_kfold.py --config <config_path> --k <number_of_folds>
-!python scripts/run_kfold.py --config src/configs/resnet50.yaml --k 5
+!python scripts/run_kfold.py --config src/configs/swin_tiny.yaml --k 5
 ```
 
 ### 8.3 Sweeping K=2, 3, 5, 7, 9
 To populate your exact paper requirements table, run the sweeps in a sequence:
 ```bash
-!python scripts/run_kfold.py --config src/configs/resnet50.yaml --k 2 && \
-python scripts/run_kfold.py --config src/configs/resnet50.yaml --k 3 && \
-python scripts/run_kfold.py --config src/configs/resnet50.yaml --k 5 && \
-python scripts/run_kfold.py --config src/configs/resnet50.yaml --k 7 && \
-python scripts/run_kfold.py --config src/configs/resnet50.yaml --k 9
+!python scripts/run_kfold.py --config src/configs/swin_tiny.yaml --k 2 && \
+python scripts/run_kfold.py --config src/configs/swin_tiny.yaml --k 3 && \
+python scripts/run_kfold.py --config src/configs/swin_tiny.yaml --k 5 && \
+python scripts/run_kfold.py --config src/configs/swin_tiny.yaml --k 7 && \
+python scripts/run_kfold.py --config src/configs/swin_tiny.yaml --k 9
 ```
 
 ### 8.4 Generated K-Fold Reports Locations:
-* 📝 **JSON Detail Report**: `outputs/kfold/<model_name>_k<K>_report.json`
+* 📝 **JSON Detail Report**: `outputs/kfold/swin_tiny_k<K>_report.json`
 * 📝 **Consolidated Markdown Table**: `outputs/reports/kfold_metrics_table.md` (appends every completed sweep automatically, making it extremely easy to copy-paste the K-Fold values into your paper draft!)
