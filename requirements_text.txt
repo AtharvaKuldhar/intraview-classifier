@@ -1,63 +1,83 @@
-Requirements
-Train Test validation split…? 
-Attributes 
-Description 
-Total number of images 
-…………………
-Intra oral image Varieties 
-8 classes
-Images in each class 
-…………….
-Resolution 
-………………………….
-Dataset split up 
-……………….
-Training and testing images 
-…. images and …….. images 
-Hyperparameter 
-Model name1
-Name2
-Name2
-Name2
-Name2
-Dataset 
-Input Image Size 
-Model Initialization 
-Convolution Layers 
-Attention Mechanism 
-Pooling Strategy 
-Fully Connected Layers 
-Activation Function 
-Output Activation 
-Loss Function 
-Optimizer 
-Learning Rate 
-Batch Size 
-Number of Epochs 
-Dropout Rate 
-Data Augmentation 
-Fine-Tuning 
-Evaluation Metrics 
-Data preprocessing:
-Give description of Data preprocessing
-…………………..
-Feature Extraction
-Model
-Accuracy
-Precision 
-Recall
-F1-score
-Dataset
-K-folds
-Accuracy %
-Precision %
-Recall %
-F1-score %
-Intraoral dataset
-K=2
-K=3
-K=5
-K=7
-K=9
-System Flow
-Dental image dataset->Preprocessing->…………………
+================================================================================
+CLINICAL STUDY: 8-CLASS INTRAORAL DENTAL VIEW CLASSIFICATION
+================================================================================
+
+1. Dataset Overview & Attributes
+--------------------------------
+* Attributes                 | Description
+* ---------------------------+--------------------------------------------------
+* Total number of images     | 5,234 balanced images (from 2,975 unique cleaned clinical images)
+* Intraoral image Varieties  | 8 View-Based Classes:
+                             |   1. lower_front     (650 images)
+                             |   2. lower_left      (684 images)
+                             |   3. lower_occlusal  (650 images)
+                             |   4. lower_right     (650 images)
+                             |   5. upper_front     (650 images)
+                             |   6. upper_left      (650 images)
+                             |   7. upper_occlusal  (650 images)
+                             |   8. upper_right     (650 images)
+* Resolution                 | Fixed at 224 x 224 pixels (RGB, 3 color channels)
+* Dataset split up           | Stratified Partitioning: 70% Train / 15% Val / 15% Test
+* Training and testing images| 3,663 training, 785 validation, and 786 testing images
+
+2. Hyperparameters & Architectural Configuration (Champion Model: Swin-Tiny)
+-----------------------------------------------------------------------------
+* Hyperparameter             | Swin Transformer Tiny Configuration
+* ---------------------------+--------------------------------------------------
+* Dataset                    | Intraoral Dental View Dataset (v1.1-balanced)
+* Input Image Size           | 224 x 224 pixels
+* Model Initialization       | Pretrained ImageNet-22K Weights fine-tuned on ImageNet-1K
+* Convolution Layers         | None (Pure Self-Attention Transformer with Shifted Windows)
+* Attention Mechanism        | Shifted Window Multi-Head Self-Attention (W-MSA / SW-MSA)
+* Pooling Strategy           | Global Average Pooling (GAP)
+* Fully Connected Layers     | Linear Classifier Head (768 units -> 8 view classes)
+* Activation Function        | GELU (Gaussian Error Linear Unit in Transformer blocks)
+* Output Activation          | Softmax
+* Loss Function              | Class-Weighted Cross Entropy (dual-balanced with inverse counts)
+* Optimizer                  | AdamW (weight decay = 0.01)
+* Learning Rate              | Double-Phase LR: Phase 1 (1e-3, head only) / Phase 2 (1e-4, full)
+* Batch Size                 | 32 (optimized for T4/L4 GPU memory footprints)
+* Number of Epochs           | Double-Phase: 10 epochs Phase 1, 40 epochs Phase 2 (Total: 50)
+* Stochastic Depth Rate      | 0.2 (Path drop rate)
+* Data Augmentation          | Class-Aware Tiered Offline Augmentation via Albumentations:
+                             |   - Rotate max +-15 degrees, Brightness/Contrast +-15%,
+                             |     Gaussian Defocus Blur, Saturation +-10% (Hue locked at 0),
+                             |     Random Resized Crop, Sharpening.
+                             |   * STRICTLY PROHIBITED: Horizontal/Vertical Flips, Elastic Warping
+* Fine-Tuning                | Phase 1: Classifier head calibration (feature extractor frozen)
+                             | Phase 2: Global backpropagation fine-tuning (all layers unfrozen)
+* Evaluation Metrics         | Accuracy, Precision (Macro), Recall (Macro), F1-Score (Macro)
+
+3. Data Preprocessing Description
+---------------------------------
+To guarantee absolute data hygiene and scientific reproducibility, a rigorous preprocessing pipeline is executed:
+1. Cryptographic Deduplication: MD5 checksum hashing is performed across all raw images, identifying and removing 967 redundant duplicate within-class files (24.5% of raw collection) and 4 cross-class label conflicts (8 file instances).
+2. Spatial Resize: Clean unique images (2,975 instances) are structurally standardized to 224 x 224 pixels using bilinear interpolation.
+3. Class-Aware offline Augmentation: A tiered Albumentations pipeline balances minority classes to a targeted threshold of ~650 images each, generating 2,259 unique augmented instances (average multiplier 1.76x, max 4.48x for upper_right). Transformations are limited to medically-safe perturbations (small rotation, exposure adjustments, localized crop, blur, hue-locked saturation, sharpening) while strictly banning all flipping operations to prevent Left-Right or Upper-Lower anatomical label contamination. In-memory MD5 unique filters ensure zero duplicates in the final 5,234-image balanced cohort.
+
+4. Feature Extraction Performance (Hold-out Evaluation, 786 Unseen Images)
+---------------------------------------------------------------------------
+* Model                      | Accuracy | Precision (Macro) | Recall (Macro) | F1-Score (Macro)
+* ---------------------------+----------+-------------------+----------------+------------------
+* SWIN-TINY (Champion)       | [PENDING]| [PENDING]         | [PENDING]      | [PENDING]
+* DINOv2-SMALL (Runner-up)   | [PENDING]| [PENDING]         | [PENDING]      | [PENDING]
+* CONVNEXT-TINY              | [PENDING]| [PENDING]         | [PENDING]      | [PENDING]
+* EFFICIENTNET-B3            | [PENDING]| [PENDING]         | [PENDING]      | [PENDING]
+* EFFICIENTNET-B2            | [PENDING]| [PENDING]         | [PENDING]      | [PENDING]
+* RESNET-50                  | [PENDING]| [PENDING]         | [PENDING]      | [PENDING]
+* DENSENET-121               | [PENDING]| [PENDING]         | [PENDING]      | [PENDING]
+* MOBILENETV3-SMALL          | [PENDING]| [PENDING]         | [PENDING]      | [PENDING]
+
+5. K-Fold Cross Validation Robustness Sweep (Champion: Swin-Tiny)
+-----------------------------------------------------------------
+* Dataset                    | K-folds  | Accuracy % | Precision % | Recall % | F1-score %
+* ---------------------------+----------+------------+-------------+----------+------------
+* Intraoral dataset          | K=2      | [PENDING]  | [PENDING]   | [PENDING]| [PENDING]
+* Intraoral dataset          | K=3      | [PENDING]  | [PENDING]   | [PENDING]| [PENDING]
+* Intraoral dataset          | K=5      | [PENDING]  | [PENDING]   | [PENDING]| [PENDING]
+* Intraoral dataset          | K=7      | [PENDING]  | [PENDING]   | [PENDING]| [PENDING]
+* Intraoral dataset          | K=9      | [PENDING]  | [PENDING]   | [PENDING]| [PENDING]
+
+6. System Flow Diagram
+----------------------
+Dental image dataset -> Cryptographic MD5 Deduplication -> Tiered Albumentations Balancing -> Bilinear Resolution Standardization (224x224 RGB) -> Train/Val/Test Stratified Split (70/15/15) -> Phase 1 Classifier Head Calibration -> Phase 2 Global Fine-Tuning (Swin-Tiny) -> Hold-out Evaluation / K-Fold Robustness Analysis -> Clinical Deployment Verification
