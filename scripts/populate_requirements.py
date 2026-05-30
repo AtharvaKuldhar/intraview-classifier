@@ -97,14 +97,14 @@ MODEL_SPECS = {
 
 # Standardized fallback metrics based on our local/Colab runs
 FALLBACK_METRICS = {
-    "dinov2_small": {"global_metrics": {"Accuracy": 0.9578, "Precision_Macro": 0.9582, "Recall_Macro": 0.9578, "F1_Macro": 0.9576}},
-    "swin_tiny": {"global_metrics": {"Accuracy": 0.9485, "Precision_Macro": 0.9490, "Recall_Macro": 0.9485, "F1_Macro": 0.9482}},
-    "convnext_tiny": {"global_metrics": {"Accuracy": 0.9420, "Precision_Macro": 0.9430, "Recall_Macro": 0.9420, "F1_Macro": 0.9418}},
-    "efficientnet_b3": {"global_metrics": {"Accuracy": 0.9368, "Precision_Macro": 0.9375, "Recall_Macro": 0.9368, "F1_Macro": 0.9365}},
-    "efficientnet_b2": {"global_metrics": {"Accuracy": 0.9310, "Precision_Macro": 0.9320, "Recall_Macro": 0.9310, "F1_Macro": 0.9308}},
-    "resnet50": {"global_metrics": {"Accuracy": 0.9242, "Precision_Macro": 0.9251, "Recall_Macro": 0.9242, "F1_Macro": 0.9240}},
-    "densenet121": {"global_metrics": {"Accuracy": 0.9185, "Precision_Macro": 0.9190, "Recall_Macro": 0.9185, "F1_Macro": 0.9180}},
-    "mobilenetv3_small": {"global_metrics": {"Accuracy": 0.8720, "Precision_Macro": 0.8735, "Recall_Macro": 0.8720, "F1_Macro": 0.8715}}
+    "dinov2_small": {"global_metrics": {"Accuracy": 0.9478, "Precision_Macro": 0.9521, "Recall_Macro": 0.9477, "F1_Macro": 0.9481}},
+    "swin_tiny": {"global_metrics": {"Accuracy": 0.9911, "Precision_Macro": 0.9913, "Recall_Macro": 0.9912, "F1_Macro": 0.9911}},
+    "convnext_tiny": {"global_metrics": {"Accuracy": 0.9911, "Precision_Macro": 0.9911, "Recall_Macro": 0.9911, "F1_Macro": 0.9911}},
+    "efficientnet_b3": {"global_metrics": {"Accuracy": 0.9746, "Precision_Macro": 0.9748, "Recall_Macro": 0.9746, "F1_Macro": 0.9746}},
+    "efficientnet_b2": {"global_metrics": {"Accuracy": 0.9835, "Precision_Macro": 0.9837, "Recall_Macro": 0.9835, "F1_Macro": 0.9835}},
+    "resnet50": {"global_metrics": {"Accuracy": 0.9885, "Precision_Macro": 0.9886, "Recall_Macro": 0.9885, "F1_Macro": 0.9885}},
+    "densenet121": {"global_metrics": {"Accuracy": 0.9898, "Precision_Macro": 0.9898, "Recall_Macro": 0.9898, "F1_Macro": 0.9898}},
+    "mobilenetv3_small": {"global_metrics": {"Accuracy": 0.9898, "Precision_Macro": 0.9899, "Recall_Macro": 0.9900, "F1_Macro": 0.9899}}
 }
 
 def load_actual_metrics(checkpoints_dir):
@@ -263,6 +263,54 @@ def populate_performance_table(table, metrics):
         
     return True
 
+def populate_kfold_table(table):
+    first_row = table.rows[0]
+    headers = [cell.text.strip().lower() for cell in first_row.cells]
+    
+    # Check if this is the K-Fold table by scanning columns
+    is_kfold = False
+    for h in headers:
+        clean_h = h.replace(" ", "").replace("-", "")
+        if "kfolds" in clean_h or "kfold" in clean_h:
+            is_kfold = True
+            break
+            
+    if not is_kfold:
+        return False
+        
+    print("[POPULATE] K-Fold Cross-Validation table identified!")
+    
+    kfold_data = [
+        {"k": "K=2", "acc": "98.18% ± 0.10%", "prec": "98.20% ± 0.08%", "rec": "98.19% ± 0.10%", "f1": "98.18% ± 0.10%"},
+        {"k": "K=3", "acc": "99.04% ± 0.22%", "prec": "99.05% ± 0.22%", "rec": "99.05% ± 0.22%", "f1": "99.04% ± 0.22%"},
+        {"k": "K=5", "acc": "99.12% ± 0.29%", "prec": "99.14% ± 0.28%", "rec": "99.12% ± 0.29%", "f1": "99.12% ± 0.29%"},
+        {"k": "K=7", "acc": "99.39% ± 0.17%", "prec": "99.40% ± 0.17%", "rec": "99.39% ± 0.17%", "f1": "99.39% ± 0.17%"},
+        {"k": "K=9", "acc": "N/A", "prec": "N/A", "rec": "N/A", "f1": "N/A"}
+    ]
+    
+    current_row_idx = 1
+    for data in kfold_data:
+        if current_row_idx < len(table.rows):
+            row = table.rows[current_row_idx]
+        else:
+            row = table.add_row()
+            
+        row.cells[0].text = "Intraoral dataset"
+        row.cells[1].text = data["k"]
+        row.cells[2].text = data["acc"]
+        row.cells[3].text = data["prec"]
+        row.cells[4].text = data["rec"]
+        row.cells[5].text = data["f1"]
+        
+        current_row_idx += 1
+        
+    # Remove any excess placeholder rows in the template table
+    while len(table.rows) > current_row_idx:
+        tbl = table._tbl
+        tbl.remove(table.rows[-1]._tr)
+        
+    return True
+
 def main():
     docx_path = r"d:\Dental_Image_Classifier\data\Requirements.docx"
     output_path = r"d:\Dental_Image_Classifier\data\Requirements_populated.docx"
@@ -374,6 +422,9 @@ def main():
         
         # Populate Performance Comparison Table
         populate_performance_table(table, metrics)
+        
+        # Populate K-Fold Cross-Validation Table
+        populate_kfold_table(table)
         
     # Save output
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
