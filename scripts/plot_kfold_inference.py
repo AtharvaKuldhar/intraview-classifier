@@ -220,7 +220,7 @@ def plot_beeswarm_insight(reports: List[Dict[str, Any]], output_path: str):
         # Mean horizontal line
         plt.hlines(mean, k - 0.2, k + 0.2, colors=COLORS['neutral_dark'], linewidths=3, zorder=2)
         # Std vertical error bar
-        plt.vlines(k, mean - std, mean + std, colors=COLORS['secondary'], linewidths=2.5, capsize=6, zorder=1)
+        plt.errorbar(k, mean, yerr=std, color=COLORS['secondary'], elinewidth=2.5, capsize=6, fmt='none', zorder=1)
         
     # Scatter points with jitter
     x_jitter = np.array(x_data) + np.random.uniform(-0.06, 0.06, size=len(x_data))
